@@ -1,0 +1,90 @@
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import '../api/beissab_api.dart';
+import '../core/session.dart';
+import '../widgets/common.dart';
+
+class OnboardingScreen extends StatefulWidget {
+  const OnboardingScreen({super.key});
+  @override
+  State<OnboardingScreen> createState() => _S();
+}
+
+class _S extends State<OnboardingScreen> {
+  String household = 'familie', diet = 'all';
+  int children = 1, time = 25;
+  bool busy = false;
+  @override
+  Widget build(c) => Scaffold(
+          body: SafeArea(
+              child: ListView(padding: const EdgeInsets.all(22), children: [
+        const PageTitle('Damit BeissAb zu dir passt',
+            subtitle:
+                'Einmal kurz deinen Haushalt und deine Essenswünsche einstellen.'),
+        const Text('Haushalt', style: TextStyle(fontWeight: FontWeight.w800)),
+        const SizedBox(height: 8),
+        SegmentedButton<String>(segments: const [
+          ButtonSegment(value: 'single', label: Text('Single')),
+          ButtonSegment(value: 'paar', label: Text('Paar')),
+          ButtonSegment(value: 'familie', label: Text('Familie'))
+        ], selected: {
+          household
+        }, onSelectionChanged: (v) => setState(() => household = v.first)),
+        if (household == 'familie') ...[
+          const SizedBox(height: 16),
+          DropdownButtonFormField<int>(
+              initialValue: children,
+              decoration: const InputDecoration(labelText: 'Anzahl Kinder'),
+              items: [1, 2, 3, 4, 5]
+                  .map((v) => DropdownMenuItem(value: v, child: Text('$v')))
+                  .toList(),
+              onChanged: (v) => setState(() => children = v ?? 1))
+        ],
+        const SizedBox(height: 16),
+        DropdownButtonFormField<String>(
+            initialValue: diet,
+            decoration: const InputDecoration(labelText: 'Ernährung'),
+            items: const {
+              'all': 'Alles',
+              'vegetarian': 'Vegetarisch',
+              'vegan': 'Vegan',
+              'pescatarian': 'Fisch'
+            }
+                .entries
+                .map(
+                    (x) => DropdownMenuItem(value: x.key, child: Text(x.value)))
+                .toList(),
+            onChanged: (v) => setState(() => diet = v ?? 'all')),
+        const SizedBox(height: 16),
+        DropdownButtonFormField<int>(
+            initialValue: time,
+            decoration: const InputDecoration(labelText: 'Maximale Kochzeit'),
+            items: [15, 20, 25, 30, 35, 45]
+                .map((v) =>
+                    DropdownMenuItem(value: v, child: Text('bis $v Minuten')))
+                .toList(),
+            onChanged: (v) => setState(() => time = v ?? 25)),
+        const SizedBox(height: 24),
+        AsyncButton(
+            label: 'Weiter zu BeissAb',
+            busy: busy,
+            onPressed: () async {
+              setState(() => busy = true);
+              try {
+                await userApi.onboarding({
+                  'householdType':
+                      household == 'familie' ? 'familie' : household,
+                  'childrenCount': household == 'familie' ? children : 0,
+                  'dietType': diet,
+                  'maxCookingTime': time
+                });
+                await session.markOnboarding();
+                if (mounted) context.go('/app');
+              } catch (x) {
+                if (mounted) snack(context, '$x');
+              } finally {
+                if (mounted) setState(() => busy = false);
+              }
+            })
+      ])));
+}

@@ -1,0 +1,7 @@
+import 'package:flutter/material.dart';
+class PageTitle extends StatelessWidget {final String title; final String? subtitle; const PageTitle(this.title,{this.subtitle,super.key}); @override Widget build(BuildContext c)=>Padding(padding:const EdgeInsets.fromLTRB(20,20,20,14),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(title,style:Theme.of(c).textTheme.headlineMedium?.copyWith(fontWeight:FontWeight.w900)),if(subtitle!=null)...[const SizedBox(height:5),Text(subtitle!,style:TextStyle(color:Colors.grey.shade600))]]));}
+class AsyncButton extends StatelessWidget {final bool busy;final String label;final VoidCallback? onPressed; const AsyncButton({required this.label,required this.onPressed,this.busy=false,super.key});@override Widget build(BuildContext c)=>SizedBox(width:double.infinity,height:54,child:FilledButton(onPressed:busy?null:onPressed,child:busy?const SizedBox.square(dimension:22,child:CircularProgressIndicator(strokeWidth:2)):Text(label,style:const TextStyle(fontWeight:FontWeight.w800))));}
+void snack(BuildContext c,String m)=>ScaffoldMessenger.of(c).showSnackBar(SnackBar(content:Text(m)));
+String mealTitle(dynamic m)=>m is Map?(m['title']??m['name']??m['mealName']??m['recipeName']??'Gericht').toString():'Gericht';
+dynamic mealId(dynamic m)=>m is Map?(m['id']??m['mealId']??m['recipeId']):null;
+String? mealImage(dynamic m){if(m is! Map)return null; final v=m['imageUrl']??m['image_url']??m['image']; if(v==null)return null; return v.toString();}
