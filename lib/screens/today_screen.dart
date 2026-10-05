@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import 'package:go_router/go_router.dart';
+
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../api/beissab_api.dart';
@@ -35,6 +36,7 @@ class _TodayScreenState extends State<TodayScreen>
   bool _voting = false;
 
   Map<String, dynamic>? _activeWeek;
+
   List<dynamic>? _orderedWeekDays;
 
   String household = 'family';
@@ -71,6 +73,7 @@ class _TodayScreenState extends State<TodayScreen>
   Future<void> _loadHome() async {
     try {
       final w = await weekApi.active();
+
       final days = (w['days'] as List?) ?? const [];
 
       if (days.isNotEmpty) {
@@ -80,10 +83,13 @@ class _TodayScreenState extends State<TodayScreen>
         if (mounted) {
           setState(() {
             _activeWeek = w;
+
             _orderedWeekDays = orderedDays;
+
             loading = false;
           });
         }
+
         return;
       }
     } catch (_) {}
@@ -146,7 +152,9 @@ class _TodayScreenState extends State<TodayScreen>
         if (mounted) {
           setState(() {
             _activeWeek = w;
+
             _orderedWeekDays = (w['days'] as List?)?.cast<dynamic>();
+
             _dragOffset = Offset.zero;
           });
         }
@@ -641,17 +649,20 @@ class _TodayScreenState extends State<TodayScreen>
 
   dynamic _mealStorageId(dynamic meal) {
     if (meal is! Map) return null;
+
     return meal['id'] ?? meal['mealId'] ?? meal['recipeId'];
   }
 
   String _dayStorageId(dynamic day, int index) {
     if (day is! Map) return '$index';
+
     return '${day['id'] ?? day['dayId'] ?? day['dayIndex'] ?? index}';
   }
 
   String _planOrderStorageKey(List<dynamic> days) {
     final firstDay =
         days.isNotEmpty && days.first is Map ? days.first as Map : null;
+
     final weekId = firstDay?['weekId'] ?? firstDay?['week_id'] ?? 'active';
 
     return 'mealplan_day_recipe_order_$weekId';
@@ -663,6 +674,7 @@ class _TodayScreenState extends State<TodayScreen>
     if (serverDays.isEmpty) return serverDays;
 
     final storageKey = _planOrderStorageKey(serverDays);
+
     final saved = await _storage.read(key: storageKey);
 
     if (saved == null || saved.isEmpty) {
@@ -671,6 +683,7 @@ class _TodayScreenState extends State<TodayScreen>
 
     try {
       final decoded = jsonDecode(saved);
+
       if (decoded is! Map) {
         return serverDays;
       }
@@ -679,6 +692,7 @@ class _TodayScreenState extends State<TodayScreen>
 
       for (final day in serverDays) {
         final recipe = _recipeFromDay(day);
+
         final recipeId = _mealStorageId(recipe);
 
         if (recipeId != null) {
@@ -688,9 +702,11 @@ class _TodayScreenState extends State<TodayScreen>
 
       return List<dynamic>.generate(serverDays.length, (index) {
         final day = serverDays[index];
+
         if (day is! Map) return day;
 
         final dayId = _dayStorageId(day, index);
+
         final recipeIdForThisDay = decoded[dayId];
 
         if (recipeIdForThisDay == null) {
@@ -712,31 +728,31 @@ class _TodayScreenState extends State<TodayScreen>
       });
     } catch (_) {
       await _storage.delete(key: storageKey);
+
       return serverDays;
     }
   }
 
   Widget _weekHome(BuildContext context) {
     final w = _activeWeek!;
-
     final serverDays = (w['days'] as List?) ?? const [];
     final days = _orderedWeekDays ?? serverDays;
-
     final shopping = (w['shoppingItems'] as List?) ?? const [];
 
     final open = shopping
-        .where((x) => !(x is Map &&
-            ((x['checked'] ?? x['isChecked']) == true ||
-                (x['checked'] ?? x['isChecked']) == 1)))
+        .where(
+          (x) => !(x is Map &&
+              ((x['checked'] ?? x['isChecked']) == true ||
+                  (x['checked'] ?? x['isChecked']) == 1)),
+        )
         .length;
 
     dynamic today;
 
-    for (final d in days) {
-      final m = _recipeFromDay(d);
-      if (m != null) {
-        today = m;
-        break;
+    if (days.isNotEmpty) {
+      final todayIndex = DateTime.now().weekday - 1;
+      if (todayIndex >= 0 && todayIndex < days.length) {
+        today = _recipeFromDay(days[todayIndex]);
       }
     }
 
@@ -748,154 +764,220 @@ class _TodayScreenState extends State<TodayScreen>
       },
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(16, 20, 16, 116),
+        padding: const EdgeInsets.fromLTRB(30, 24, 30, 116),
         children: [
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                  colors: [Color(0xFFF4F0FF), Color(0xFFF6F8EC)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight),
-              borderRadius: BorderRadius.circular(28),
-            ),
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('H E U T E',
-                  style: TextStyle(
-                      color: Color(0xFF6657C8),
-                      fontSize: 11,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 2)),
-              const SizedBox(height: 14),
-              Row(children: [
-                ClipRRect(
-                    borderRadius: BorderRadius.circular(17),
-                    child: SizedBox(
-                        width: 78,
-                        height: 78,
-                        child:
-                            today == null ? _imageFallback() : _image(today))),
-                const SizedBox(width: 14),
-                Expanded(
-                    child: Text(
-                        today == null
-                            ? 'Dein Wochenplan ist bereit'
-                            : mealTitle(today),
-                        style: const TextStyle(
-                            fontSize: 22,
-                            height: 1.05,
+          ClipRRect(
+            borderRadius: BorderRadius.circular(30),
+            child: SizedBox(
+              height: 320,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (today == null) _imageFallback() else _image(today),
+                  const DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        stops: [0.35, 1.0],
+                        colors: [Color(0x00000000), Color(0xB8000000)],
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    left: 24,
+                    right: 24,
+                    bottom: 25,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'HEUTE',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 2.2,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          today == null
+                              ? 'Dein Wochenplan ist bereit'
+                              : mealTitle(today),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 28,
+                            height: 1.28,
                             fontWeight: FontWeight.w900,
-                            letterSpacing: -.5))),
-              ]),
-              const SizedBox(height: 18),
-              _homeAction(
-                dark: true,
-                icon: Icons.restaurant_menu_rounded,
-                title: 'Jetzt kochen',
-                subtitle: 'Rezept ansehen',
-                onTap: today == null
-                    ? null
-                    : () =>
-                        context.push('/recipe/${mealId(today)}', extra: today),
+                            letterSpacing: -0.7,
+                          ),
+                        ),
+                        const SizedBox(height: 11),
+                        Text(
+                          '${days.length} Gerichte geplant  ·  $open Einkäufe offen',
+                          style: const TextStyle(
+                            color: Color(0xFFD7D9DE),
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 10),
-              _homeAction(
-                  icon: Icons.shopping_bag_outlined,
-                  title: 'Einkaufsliste öffnen',
-                  subtitle: '$open noch offen',
-                  onTap: () => context.go('/shopping')),
-              const SizedBox(height: 12),
-              Container(
-                  width: double.infinity,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                  decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: .72),
-                      borderRadius: BorderRadius.circular(16)),
-                  child: Text(
-                      '${days.length} Gerichte geplant  ·  $open Einkäufe offen',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                          color: Color(0xFF737A86),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800))),
-            ]),
+            ),
           ),
-          const SizedBox(height: 18),
-          TextButton.icon(
-            style:
-                TextButton.styleFrom(foregroundColor: const Color(0xFF7D8491)),
-            onPressed: () async {
-              await weekApi.remove();
-              if (mounted) {
-                setState(() {
-                  _activeWeek = null;
-                  _orderedWeekDays = null;
-                  selected.clear();
-                  refresh++;
-                });
-                await load();
-              }
-            },
-            icon: const Icon(Icons.delete_outline_rounded, size: 19),
-            label: const Text('Komplette Woche löschen',
-                style: TextStyle(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 16),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(28),
+              border: Border.all(color: const Color(0xFFE7EBF1)),
+            ),
+            child: Column(
+              children: [
+                _pwaHomeAction(
+                  icon: Icons.restaurant_menu_rounded,
+                  title: 'Jetzt kochen',
+                  subtitle: 'Rezept ansehen',
+                  darkIcon: true,
+                  onTap: today == null
+                      ? null
+                      : () => context.push(
+                            '/recipe/${mealId(today)}',
+                            extra: today,
+                          ),
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 20),
+                  child: Divider(
+                    height: 1,
+                    thickness: 1,
+                    color: Color(0xFFEEF1F5),
+                  ),
+                ),
+                _pwaHomeAction(
+                  icon: Icons.shopping_cart_outlined,
+                  title: 'Einkaufsliste',
+                  subtitle: '$open noch offen',
+                  onTap: () => context.go('/shopping'),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+          Center(
+            child: TextButton.icon(
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFF9AADC7),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              ),
+              onPressed: () async {
+                await weekApi.remove();
+                if (mounted) {
+                  setState(() {
+                    _activeWeek = null;
+                    _orderedWeekDays = null;
+                    selected.clear();
+                    refresh++;
+                  });
+                  await load();
+                }
+              },
+              icon: const Icon(Icons.undo_rounded, size: 19),
+              label: const Text(
+                'Komplette Woche löschen',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+              ),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _homeAction(
-      {required IconData icon,
-      required String title,
-      required String subtitle,
-      required VoidCallback? onTap,
-      bool dark = false}) {
+  Widget _pwaHomeAction({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback? onTap,
+    bool darkIcon = false,
+  }) {
     return Material(
-      color:
-          dark ? const Color(0xFF111827) : Colors.white.withValues(alpha: .78),
-      borderRadius: BorderRadius.circular(19),
+      color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(19),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 14),
-          child: Row(children: [
-            Icon(icon,
-                color: dark ? const Color(0xFFC7F36B) : const Color(0xFF4E5562),
-                size: 24),
-            const SizedBox(width: 12),
-            Expanded(
-                child: Column(
+        borderRadius: BorderRadius.circular(28),
+        child: SizedBox(
+          height: 88,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: darkIcon
+                        ? const Color(0xFF020817)
+                        : const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                  alignment: Alignment.center,
+                  child: Icon(
+                    icon,
+                    size: 22,
+                    color: darkIcon ? Colors.white : const Color(0xFF40516A),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                  Text(title,
-                      style: TextStyle(
-                          color: dark ? Colors.white : const Color(0xFF171B24),
-                          fontSize: 15,
-                          fontWeight: FontWeight.w900)),
-                  const SizedBox(height: 2),
-                  Text(subtitle,
-                      style: TextStyle(
-                          color:
-                              dark ? Colors.white60 : const Color(0xFF8B929E),
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w600)),
-                ])),
-            Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                decoration: BoxDecoration(
-                    color: dark ? Colors.white12 : const Color(0xFFF0F1F3),
-                    borderRadius: BorderRadius.circular(14)),
-                child: Text('Öffnen',
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          color: Color(0xFF0B1020),
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        subtitle,
+                        style: const TextStyle(
+                          color: Color(0xFF71819B),
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(22),
+                  ),
+                  child: const Text(
+                    'Öffnen',
                     style: TextStyle(
-                        color: dark ? Colors.white : const Color(0xFF626A77),
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800))),
-          ]),
+                      color: Color(0xFF40516A),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

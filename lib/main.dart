@@ -8,7 +8,12 @@ import 'screens/today_screen.dart';
 import 'screens/plan_screen.dart';
 import 'screens/shopping_screen.dart';
 import 'screens/recipe_screen.dart';
-import 'screens/more_screens.dart';
+import 'screens/more_screen.dart';
+import 'screens/settings_screen.dart';
+import 'screens/family_screen.dart';
+import 'screens/notification_screen.dart';
+import 'screens/privacy_screen.dart';
+import 'screens/changelog_screen.dart';
 import 'screens/shell.dart';
 
 void main() {

@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:beissab_mobile/main.dart';
+import '../lib/main.dart';
 
 void main() {
   testWidgets('BeissAb app starts', (tester) async {
