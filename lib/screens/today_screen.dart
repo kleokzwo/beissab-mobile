@@ -1,8 +1,14 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+
 import 'package:go_router/go_router.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../api/beissab_api.dart';
+
 import '../core/session.dart';
+
 import '../widgets/common.dart';
 
 class TodayScreen extends StatefulWidget {
@@ -14,18 +20,27 @@ class TodayScreen extends StatefulWidget {
 
 class _TodayScreenState extends State<TodayScreen>
     with SingleTickerProviderStateMixin {
+  static const FlutterSecureStorage _storage = FlutterSecureStorage();
+
   List<dynamic> meals = [];
+
   final selected = <dynamic>[];
 
   int index = 0;
+
   int refresh = 0;
 
   bool loading = true;
+
   bool _voting = false;
+
   Map<String, dynamic>? _activeWeek;
+  List<dynamic>? _orderedWeekDays;
 
   String household = 'family';
+
   String diet = 'all';
+
   int time = 25;
 
   Offset _dragOffset = Offset.zero;
@@ -33,6 +48,7 @@ class _TodayScreenState extends State<TodayScreen>
   @override
   void initState() {
     super.initState();
+
     _loadProfile();
   }
 
@@ -56,11 +72,22 @@ class _TodayScreenState extends State<TodayScreen>
     try {
       final w = await weekApi.active();
       final days = (w['days'] as List?) ?? const [];
+
       if (days.isNotEmpty) {
-        if (mounted) setState(() { _activeWeek = w; loading = false; });
+        final orderedDays =
+            await _applyStoredRecipeOrder(List<dynamic>.from(days));
+
+        if (mounted) {
+          setState(() {
+            _activeWeek = w;
+            _orderedWeekDays = orderedDays;
+            loading = false;
+          });
+        }
         return;
       }
     } catch (_) {}
+
     await load();
   }
 
@@ -77,6 +104,7 @@ class _TodayScreenState extends State<TodayScreen>
       );
 
       index = 0;
+
       _dragOffset = Offset.zero;
     } catch (x) {
       if (mounted) snack(context, '$x');
@@ -93,6 +121,7 @@ class _TodayScreenState extends State<TodayScreen>
     _voting = true;
 
     final m = meals[index];
+
     final id = mealId(m);
 
     if (yes && id != null) {
@@ -113,8 +142,17 @@ class _TodayScreenState extends State<TodayScreen>
     if (yes && selected.length >= 7) {
       try {
         final w = await weekApi.create(selected.take(7).toList());
-        if (mounted) setState(() { _activeWeek = w; _dragOffset = Offset.zero; });
+
+        if (mounted) {
+          setState(() {
+            _activeWeek = w;
+            _orderedWeekDays = (w['days'] as List?)?.cast<dynamic>();
+            _dragOffset = Offset.zero;
+          });
+        }
+
         _voting = false;
+
         return;
       } catch (x) {
         if (mounted) snack(context, '$x');
@@ -124,6 +162,7 @@ class _TodayScreenState extends State<TodayScreen>
     if (mounted) {
       setState(() {
         index++;
+
         _dragOffset = Offset.zero;
       });
     }
@@ -144,11 +183,13 @@ class _TodayScreenState extends State<TodayScreen>
 
     if (_dragOffset.dx > threshold) {
       vote(true);
+
       return;
     }
 
     if (_dragOffset.dx < -threshold) {
       vote(false);
+
       return;
     }
 
@@ -162,11 +203,13 @@ class _TodayScreenState extends State<TodayScreen>
 
     setState(() {
       index++;
+
       _dragOffset = Offset.zero;
     });
 
     if (index >= meals.length) {
       refresh++;
+
       await load();
     }
   }
@@ -182,6 +225,7 @@ class _TodayScreenState extends State<TodayScreen>
       child: RefreshIndicator(
         onRefresh: () {
           refresh++;
+
           return load();
         },
         child: ListView(
@@ -212,8 +256,8 @@ class _TodayScreenState extends State<TodayScreen>
     final screenWidth = MediaQuery.sizeOf(context).width;
 
     final rotation = (_dragOffset.dx / screenWidth) * 0.12;
-    final swipeStrength =
-        (_dragOffset.dx.abs() / 120).clamp(0.0, 1.0);
+
+    final swipeStrength = (_dragOffset.dx.abs() / 120).clamp(0.0, 1.0);
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -231,7 +275,6 @@ class _TodayScreenState extends State<TodayScreen>
         child: Stack(
           children: [
             _mealCard(context, meal),
-
             if (_dragOffset.dx > 20)
               Positioned(
                 top: 32,
@@ -244,7 +287,6 @@ class _TodayScreenState extends State<TodayScreen>
                   ),
                 ),
               ),
-
             if (_dragOffset.dx < -20)
               Positioned(
                 top: 32,
@@ -265,8 +307,11 @@ class _TodayScreenState extends State<TodayScreen>
 
   Widget _mealCard(BuildContext context, dynamic meal) {
     final category = _category(meal);
+
     final cookTime = _cookTime(meal);
+
     final level = _level(meal);
+
     final type = _type(meal);
 
     return Material(
@@ -296,7 +341,6 @@ class _TodayScreenState extends State<TodayScreen>
                 ),
               ),
             ),
-
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
               child: Column(
@@ -334,25 +378,18 @@ class _TodayScreenState extends State<TodayScreen>
                       ),
                     ],
                   ),
-
                   const SizedBox(height: 10),
-
                   Text(
                     mealTitle(meal),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context)
-                        .textTheme
-                        .headlineSmall
-                        ?.copyWith(
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                           height: 1.0,
                           fontWeight: FontWeight.w900,
                           letterSpacing: -0.5,
                         ),
                   ),
-
                   const SizedBox(height: 30),
-
                   Row(
                     children: [
                       Expanded(
@@ -436,16 +473,12 @@ class _TodayScreenState extends State<TodayScreen>
           icon: Icons.close,
           onPressed: () => vote(false),
         ),
-
         const SizedBox(width: 28),
-
         _circleButton(
           icon: Icons.refresh_rounded,
           onPressed: _nextSuggestion,
         ),
-
         const SizedBox(width: 28),
-
         _circleButton(
           icon: Icons.favorite,
           primary: true,
@@ -461,13 +494,9 @@ class _TodayScreenState extends State<TodayScreen>
     bool primary = false,
   }) {
     return Material(
-      color: primary
-          ? const Color(0xFFFF315E)
-          : Colors.white,
+      color: primary ? const Color(0xFFFF315E) : Colors.white,
       elevation: primary ? 8 : 2,
-      shadowColor: primary
-          ? const Color(0x55FF315E)
-          : Colors.black12,
+      shadowColor: primary ? const Color(0x55FF315E) : Colors.black12,
       shape: const CircleBorder(),
       child: InkWell(
         customBorder: const CircleBorder(),
@@ -478,9 +507,7 @@ class _TodayScreenState extends State<TodayScreen>
           child: Icon(
             icon,
             size: primary ? 32 : 29,
-            color: primary
-                ? Colors.white
-                : Colors.black54,
+            color: primary ? Colors.white : Colors.black54,
           ),
         ),
       ),
@@ -570,10 +597,7 @@ class _TodayScreenState extends State<TodayScreen>
   String _level(dynamic meal) {
     if (meal is! Map) return 'einfach';
 
-    final value =
-        meal['difficulty'] ??
-        meal['level'] ??
-        'einfach';
+    final value = meal['difficulty'] ?? meal['level'] ?? 'einfach';
 
     return '$value';
   }
@@ -582,22 +606,23 @@ class _TodayScreenState extends State<TodayScreen>
     if (meal is! Map) return 'Gericht';
 
     final value =
-        meal['dietType'] ??
-        meal['diet_type'] ??
-        meal['type'] ??
-        'Gericht';
+        meal['dietType'] ?? meal['diet_type'] ?? meal['type'] ?? 'Gericht';
 
     final text = '$value';
 
     switch (text.toLowerCase()) {
       case 'vegetarian':
         return 'vegetarisch';
+
       case 'vegan':
         return 'vegan';
+
       case 'pescatarian':
         return 'Fisch';
+
       case 'all':
         return 'gemischt';
+
       default:
         return text;
     }
@@ -605,19 +630,122 @@ class _TodayScreenState extends State<TodayScreen>
 
   dynamic _recipeFromDay(dynamic d) {
     if (d is! Map) return null;
-    return d['recipe'] ?? d['meal'] ?? d['menu'] ?? ((d['recipes'] is List && (d['recipes'] as List).isNotEmpty) ? d['recipes'][0] : null);
+
+    return d['recipe'] ??
+        d['meal'] ??
+        d['menu'] ??
+        ((d['recipes'] is List && (d['recipes'] as List).isNotEmpty)
+            ? d['recipes'][0]
+            : null);
+  }
+
+  dynamic _mealStorageId(dynamic meal) {
+    if (meal is! Map) return null;
+    return meal['id'] ?? meal['mealId'] ?? meal['recipeId'];
+  }
+
+  String _dayStorageId(dynamic day, int index) {
+    if (day is! Map) return '$index';
+    return '${day['id'] ?? day['dayId'] ?? day['dayIndex'] ?? index}';
+  }
+
+  String _planOrderStorageKey(List<dynamic> days) {
+    final firstDay =
+        days.isNotEmpty && days.first is Map ? days.first as Map : null;
+    final weekId = firstDay?['weekId'] ?? firstDay?['week_id'] ?? 'active';
+
+    return 'mealplan_day_recipe_order_$weekId';
+  }
+
+  Future<List<dynamic>> _applyStoredRecipeOrder(
+    List<dynamic> serverDays,
+  ) async {
+    if (serverDays.isEmpty) return serverDays;
+
+    final storageKey = _planOrderStorageKey(serverDays);
+    final saved = await _storage.read(key: storageKey);
+
+    if (saved == null || saved.isEmpty) {
+      return serverDays;
+    }
+
+    try {
+      final decoded = jsonDecode(saved);
+      if (decoded is! Map) {
+        return serverDays;
+      }
+
+      final recipesById = <String, dynamic>{};
+
+      for (final day in serverDays) {
+        final recipe = _recipeFromDay(day);
+        final recipeId = _mealStorageId(recipe);
+
+        if (recipeId != null) {
+          recipesById['$recipeId'] = recipe;
+        }
+      }
+
+      return List<dynamic>.generate(serverDays.length, (index) {
+        final day = serverDays[index];
+        if (day is! Map) return day;
+
+        final dayId = _dayStorageId(day, index);
+        final recipeIdForThisDay = decoded[dayId];
+
+        if (recipeIdForThisDay == null) {
+          return day;
+        }
+
+        final recipe = recipesById['$recipeIdForThisDay'];
+
+        if (recipe == null) {
+          return day;
+        }
+
+        return <String, dynamic>{
+          ...Map<String, dynamic>.from(day),
+          'recipe': recipe,
+          'meal': recipe,
+          'recipes': [recipe],
+        };
+      });
+    } catch (_) {
+      await _storage.delete(key: storageKey);
+      return serverDays;
+    }
   }
 
   Widget _weekHome(BuildContext context) {
     final w = _activeWeek!;
-    final days = (w['days'] as List?) ?? const [];
+
+    final serverDays = (w['days'] as List?) ?? const [];
+    final days = _orderedWeekDays ?? serverDays;
+
     final shopping = (w['shoppingItems'] as List?) ?? const [];
-    final open = shopping.where((x) => !(x is Map && ((x['checked'] ?? x['isChecked']) == true || (x['checked'] ?? x['isChecked']) == 1))).length;
+
+    final open = shopping
+        .where((x) => !(x is Map &&
+            ((x['checked'] ?? x['isChecked']) == true ||
+                (x['checked'] ?? x['isChecked']) == 1)))
+        .length;
+
     dynamic today;
-    for (final d in days) { final m = _recipeFromDay(d); if (m != null) { today = m; break; } }
+
+    for (final d in days) {
+      final m = _recipeFromDay(d);
+      if (m != null) {
+        today = m;
+        break;
+      }
+    }
 
     return RefreshIndicator(
-      onRefresh: () async { _activeWeek = null; await _loadHome(); },
+      onRefresh: () async {
+        _activeWeek = null;
+        _orderedWeekDays = null;
+        await _loadHome();
+      },
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(16, 20, 16, 116),
@@ -625,16 +753,40 @@ class _TodayScreenState extends State<TodayScreen>
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [Color(0xFFF4F0FF), Color(0xFFF6F8EC)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+              gradient: const LinearGradient(
+                  colors: [Color(0xFFF4F0FF), Color(0xFFF6F8EC)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight),
               borderRadius: BorderRadius.circular(28),
             ),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('H E U T E', style: TextStyle(color: Color(0xFF6657C8), fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 2)),
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('H E U T E',
+                  style: TextStyle(
+                      color: Color(0xFF6657C8),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 2)),
               const SizedBox(height: 14),
               Row(children: [
-                ClipRRect(borderRadius: BorderRadius.circular(17), child: SizedBox(width: 78, height: 78, child: today == null ? _imageFallback() : _image(today))),
+                ClipRRect(
+                    borderRadius: BorderRadius.circular(17),
+                    child: SizedBox(
+                        width: 78,
+                        height: 78,
+                        child:
+                            today == null ? _imageFallback() : _image(today))),
                 const SizedBox(width: 14),
-                Expanded(child: Text(today == null ? 'Dein Wochenplan ist bereit' : mealTitle(today), style: const TextStyle(fontSize: 22, height: 1.05, fontWeight: FontWeight.w900, letterSpacing: -.5))),
+                Expanded(
+                    child: Text(
+                        today == null
+                            ? 'Dein Wochenplan ist bereit'
+                            : mealTitle(today),
+                        style: const TextStyle(
+                            fontSize: 22,
+                            height: 1.05,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: -.5))),
               ]),
               const SizedBox(height: 18),
               _homeAction(
@@ -642,29 +794,68 @@ class _TodayScreenState extends State<TodayScreen>
                 icon: Icons.restaurant_menu_rounded,
                 title: 'Jetzt kochen',
                 subtitle: 'Rezept ansehen',
-                onTap: today == null ? null : () => context.push('/recipe/${mealId(today)}', extra: today),
+                onTap: today == null
+                    ? null
+                    : () =>
+                        context.push('/recipe/${mealId(today)}', extra: today),
               ),
               const SizedBox(height: 10),
-              _homeAction(icon: Icons.shopping_bag_outlined, title: 'Einkaufsliste öffnen', subtitle: '$open noch offen', onTap: () => context.go('/shopping')),
+              _homeAction(
+                  icon: Icons.shopping_bag_outlined,
+                  title: 'Einkaufsliste öffnen',
+                  subtitle: '$open noch offen',
+                  onTap: () => context.go('/shopping')),
               const SizedBox(height: 12),
-              Container(width: double.infinity, padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12), decoration: BoxDecoration(color: Colors.white.withValues(alpha: .72), borderRadius: BorderRadius.circular(16)), child: Text('${days.length} Gerichte geplant  ·  $open Einkäufe offen', textAlign: TextAlign.center, style: const TextStyle(color: Color(0xFF737A86), fontSize: 12, fontWeight: FontWeight.w800))),
+              Container(
+                  width: double.infinity,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: .72),
+                      borderRadius: BorderRadius.circular(16)),
+                  child: Text(
+                      '${days.length} Gerichte geplant  ·  $open Einkäufe offen',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                          color: Color(0xFF737A86),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800))),
             ]),
           ),
           const SizedBox(height: 18),
           TextButton.icon(
-            style: TextButton.styleFrom(foregroundColor: const Color(0xFF7D8491)),
-            onPressed: () async { await weekApi.remove(); if (mounted) { setState(() { _activeWeek = null; selected.clear(); refresh++; }); await load(); } },
+            style:
+                TextButton.styleFrom(foregroundColor: const Color(0xFF7D8491)),
+            onPressed: () async {
+              await weekApi.remove();
+              if (mounted) {
+                setState(() {
+                  _activeWeek = null;
+                  _orderedWeekDays = null;
+                  selected.clear();
+                  refresh++;
+                });
+                await load();
+              }
+            },
             icon: const Icon(Icons.delete_outline_rounded, size: 19),
-            label: const Text('Komplette Woche löschen', style: TextStyle(fontWeight: FontWeight.w700)),
+            label: const Text('Komplette Woche löschen',
+                style: TextStyle(fontWeight: FontWeight.w700)),
           ),
         ],
       ),
     );
   }
 
-  Widget _homeAction({required IconData icon, required String title, required String subtitle, required VoidCallback? onTap, bool dark = false}) {
+  Widget _homeAction(
+      {required IconData icon,
+      required String title,
+      required String subtitle,
+      required VoidCallback? onTap,
+      bool dark = false}) {
     return Material(
-      color: dark ? const Color(0xFF111827) : Colors.white.withValues(alpha: .78),
+      color:
+          dark ? const Color(0xFF111827) : Colors.white.withValues(alpha: .78),
       borderRadius: BorderRadius.circular(19),
       child: InkWell(
         onTap: onTap,
@@ -672,14 +863,38 @@ class _TodayScreenState extends State<TodayScreen>
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 14),
           child: Row(children: [
-            Icon(icon, color: dark ? const Color(0xFFC7F36B) : const Color(0xFF4E5562), size: 24),
+            Icon(icon,
+                color: dark ? const Color(0xFFC7F36B) : const Color(0xFF4E5562),
+                size: 24),
             const SizedBox(width: 12),
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(title, style: TextStyle(color: dark ? Colors.white : const Color(0xFF171B24), fontSize: 15, fontWeight: FontWeight.w900)),
-              const SizedBox(height: 2),
-              Text(subtitle, style: TextStyle(color: dark ? Colors.white60 : const Color(0xFF8B929E), fontSize: 11.5, fontWeight: FontWeight.w600)),
-            ])),
-            Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7), decoration: BoxDecoration(color: dark ? Colors.white12 : const Color(0xFFF0F1F3), borderRadius: BorderRadius.circular(14)), child: Text('Öffnen', style: TextStyle(color: dark ? Colors.white : const Color(0xFF626A77), fontSize: 11, fontWeight: FontWeight.w800))),
+            Expanded(
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                  Text(title,
+                      style: TextStyle(
+                          color: dark ? Colors.white : const Color(0xFF171B24),
+                          fontSize: 15,
+                          fontWeight: FontWeight.w900)),
+                  const SizedBox(height: 2),
+                  Text(subtitle,
+                      style: TextStyle(
+                          color:
+                              dark ? Colors.white60 : const Color(0xFF8B929E),
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600)),
+                ])),
+            Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                decoration: BoxDecoration(
+                    color: dark ? Colors.white12 : const Color(0xFFF0F1F3),
+                    borderRadius: BorderRadius.circular(14)),
+                child: Text('Öffnen',
+                    style: TextStyle(
+                        color: dark ? Colors.white : const Color(0xFF626A77),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800))),
           ]),
         ),
       ),
@@ -704,10 +919,7 @@ class _TodayScreenState extends State<TodayScreen>
                     ? 'Keine weiteren Vorschläge'
                     : '${selected.length} Gerichte ausgewählt',
                 textAlign: TextAlign.center,
-                style: Theme.of(context)
-                    .textTheme
-                    .titleLarge
-                    ?.copyWith(
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.w900,
                     ),
               ),
@@ -738,6 +950,7 @@ class _TodayScreenState extends State<TodayScreen>
               TextButton(
                 onPressed: () {
                   refresh++;
+
                   load();
                 },
                 child: const Text('Neue Vorschläge'),
