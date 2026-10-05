@@ -124,10 +124,57 @@ class _ShoppingScreenState extends State<ShoppingScreen> {
   Widget _swipeBg(Color color, IconData icon, String text, Alignment alignment) => Container(alignment: alignment, padding: const EdgeInsets.symmetric(horizontal: 22), decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(18)), child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(icon), const SizedBox(width: 7), Text(text, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1))]));
 
   Future<void> edit(dynamic i) async {
-    final n = TextEditingController(text: name(i));
-    final q = TextEditingController(text: '${i is Map ? (i['quantity'] ?? i['amount'] ?? '') : ''}');
-    final cat = TextEditingController(text: category(i));
-    await showDialog(context: context, builder: (dialogContext) => AlertDialog(title: const Text('Artikel bearbeiten'), content: Column(mainAxisSize: MainAxisSize.min, children: [TextField(controller: n, decoration: const InputDecoration(labelText: 'Name')), const SizedBox(height: 10), TextField(controller: q, decoration: const InputDecoration(labelText: 'Menge')), const SizedBox(height: 10), TextField(controller: cat, decoration: const InputDecoration(labelText: 'Kategorie'))]), actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Abbrechen')), FilledButton(onPressed: () async { await weekApi.edit(itemId(i), n.text, q.text, cat.text); if (dialogContext.mounted) Navigator.pop(dialogContext); await load(); }, child: const Text('Speichern'))]));
-    n.dispose(); q.dispose(); cat.dispose();
+    var editedName = name(i);
+    var editedQuantity =
+        '${i is Map ? (i['quantity'] ?? i['amount'] ?? '') : ''}';
+    var editedCategory = category(i);
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Artikel bearbeiten'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextFormField(
+              initialValue: editedName,
+              onChanged: (value) => editedName = value,
+              decoration: const InputDecoration(labelText: 'Name'),
+            ),
+            const SizedBox(height: 10),
+            TextFormField(
+              initialValue: editedQuantity,
+              onChanged: (value) => editedQuantity = value,
+              decoration: const InputDecoration(labelText: 'Menge'),
+            ),
+            const SizedBox(height: 10),
+            TextFormField(
+              initialValue: editedCategory,
+              onChanged: (value) => editedCategory = value,
+              decoration: const InputDecoration(labelText: 'Kategorie'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Abbrechen'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              await weekApi.edit(
+                itemId(i),
+                editedName,
+                editedQuantity,
+                editedCategory,
+              );
+              if (dialogContext.mounted) Navigator.pop(dialogContext);
+              await load();
+            },
+            child: const Text('Speichern'),
+          ),
+        ],
+      ),
+    );
   }
 }
