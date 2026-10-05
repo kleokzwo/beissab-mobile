@@ -30,7 +30,7 @@ class AppShell extends StatelessWidget {
       extendBody: true,
       body: SafeArea(bottom: false, child: child),
       bottomNavigationBar: SafeArea(
-        minimum: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+        minimum: const EdgeInsets.fromLTRB(16, 0, 16, 24),
         child: Container(
           height: 72,
           padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 7),

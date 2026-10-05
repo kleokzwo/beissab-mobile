@@ -78,6 +78,10 @@ class _S extends State<OnboardingScreen> {
                   'dietType': diet,
                   'maxCookingTime': time
                 });
+                // Onboarding-PATCH liefert nicht zwingend den aktualisierten
+                // Benutzer zurück. Deshalb denselben Stand wie FamilyScreen
+                // direkt wieder vom Backend laden.
+                session.user = await userApi.me();
                 await session.markOnboarding();
                 if (mounted) context.go('/app');
               } catch (x) {
