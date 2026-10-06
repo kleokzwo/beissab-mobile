@@ -1,4 +1,4 @@
-package com.example.beissab_mobile
+package de.beissab.app
 
 import io.flutter.embedding.android.FlutterActivity
 
