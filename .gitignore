@@ -6,3 +6,10 @@ android/.gradle/
 ios/Pods/
 .env
 *.iml
+
+# Android release signing – NEVER commit
+android/key.properties
+android/app/*.jks
+android/app/*.keystore
+*.jks
+*.keystore
